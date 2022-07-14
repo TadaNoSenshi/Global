@@ -19,13 +19,14 @@ else:
 
 bot = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.all(), sync_commands=True)
 bot.remove_command("help")
-bot_invite = discord.utils.oauth_url(str(bot.app.id), permissions=discord.Permissions().all_channel(), scopes=('bot', 'application.commands'))
+bot.invite_url = None
 
 @bot.event
 async def on_ready():
     if not hasattr(bot, '_status_task'):
         bot.loop.create_task(status_task())
         print('started status-task')
+    bot.invite_url = discord.utils.oauth_url(str(bot.app.id), permissions=discord.Permissions().all_channel(), scopes=('bot', 'application.commands'))
     print('Logged in as:')
     print(bot.user.name)
     print(bot.user.id)
@@ -285,7 +286,7 @@ async def sendAll(message: Union[discord.Message, discord.Embed], embed: discord
                 member_count += 1
 
         msg_embed.set_footer(text=f'Gesendet von: {guild.name}  👤 {member_count} - 🤖 {bot_count}', icon_url=icon_url)
-        links = f'[🤖Invite Bot]({bot_invite})'
+        links = f'[🤖Invite Bot]({bot.invite_url})'
         globalchat = get_globalChat(guild.id, message.channel.id)
         invite = globalchat.get("invite", None)
         if invite:
