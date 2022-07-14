@@ -1,17 +1,18 @@
-import discord
-import asyncio
-from discord.ext import commands
 import os
-from discord_slash import SlashCommand
 import json
+import asyncio
+import discord
+from discord.ext import commands
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
-slash=SlashCommand(bot, sync_commands=True)
+
+bot = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.all(), sync_commands=True)
 bot.remove_command("help")
 
 @bot.event
 async def on_ready():
-    bot.loop.create_task(status_task())
+    if not hasattr(bot, '_status_task'):
+        bot.loop.create_task(status_task())
+        print('started status-task')
     print('Logged in as:')
     print(bot.user.name)
     print(bot.user.id)
@@ -21,7 +22,10 @@ async def on_ready():
 
 async def status_task():
     while True:
-        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"{len(set(bot.users))} user | {len(bot.guilds)} Server🌍"))
+        name = f"{len(set(bot.users))} user | {len(bot.guilds)} Server🌍"
+        if name != bot.activity.name:
+            await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=name))
+        await asyncio.sleep(15)
 
 with open("ban.json", "r")as f:
   banned=json.load(f)
@@ -31,16 +35,16 @@ with open("servers.json", "r")as f:
 @bot.event
 async def on_message(message):
     with open("ban.json", "r")as f:
-      banned=json.load(f)
+        banned=json.load(f)
     if message.author.bot:
         return
     if message.author.id in banned["Banned"]:
-      await message.delete()
-      embed=discord.Embed(title=f"{message.author}, Du bist aus dem Chat leider gebannt!", color=0x5adcf3)
-      hinweis=await message.channel.send(embed=embed)
-      await asyncio.sleep(5)
-      await hinweis.delete()
-      return
+        await message.delete()
+        embed = discord.Embed(title=f"{message.author}, Du bist aus dem Chat leider gebannt!", color=0x5adcf3)
+        hinweis=await message.channel.send(embed=embed)
+        await asyncio.sleep(5)
+        await hinweis.delete()
+        return
     if get_globalChat(message.guild.id, message.channel.id, ):
         await sendAll(message)
     await bot.process_commands(message)
@@ -55,7 +59,7 @@ else:
         json.dump(servers, f, indent=4)
 
 
-@slash.slash(name="addGlobal", description="Add the Global chat into this channel")
+@bot.slash_command(name="addGlobal", description="Add the Global chat into this channel")
 async def addGlobal(ctx, tee="None"):
     if ctx.author.guild_permissions.administrator:
       with open("servers.json", "r")as f:
@@ -106,7 +110,7 @@ async def addGlobal(ctx, tee="None"):
             await ctx.send(embed=embed)
 
 
-@slash.slash(name="removeGlobal", description="Remove the Global chat from this channel")
+@bot.slash_command(name="removeGlobal", description="Remove the Global chat from this channel")
 async def removeGlobal(ctx):
       if ctx.author.guild_permissions.administrator:
         with open("servers.json", "r")as f:
@@ -138,7 +142,7 @@ async def removeGlobal(ctx):
                                   color=0x5adcf3)
             await ctx.send(embed=embed)
 
-@slash.slash(name="ban", description="Ban a user from Global Chat")
+@bot.slash_command(name="ban", description="Ban a user from Global Chat")
 async def ban(ctx, member: discord.Member, reason=None):
       if ctx.author.guild_permissions.administrator:
         if not guild_exists(ctx.guild.id):
@@ -188,7 +192,7 @@ async def ban(ctx, member: discord.Member, reason=None):
           await member.send(embed=embed)
 
 
-@slash.slash(name="unban", description="Unban a user from Global Chat")
+@bot.slash_command(name="unban", description="Unban a user from Global Chat")
 async def unban(ctx, member: discord.Member):
       if ctx.author.guild_permissions.administrator:
         if not guild_exists(ctx.guild.id):
@@ -225,7 +229,7 @@ async def unban(ctx, member: discord.Member):
         await member.send(embed=embed)
 
 
-@slash.slash(name="servers", description="See Server using Global Chat")
+@bot.slash_command(name="servers", description="See Server using Global Chat")
 async def servers(ctx, number=None):
   if number==None:
     number=10
@@ -346,7 +350,7 @@ def get_globalChat_id(guild_id):
 
 #-----------------------------------------------------------#
 
-@slash.slash(name="help", description="Get all commands from Bot")
+@bot.slash_command(name="help", description="Get all commands from Bot")
 async def help(ctx):
   embed=discord.Embed(title="Help", color=0x5adcf3)
   embed.add_field(name="Commands:", value="```/addGlobal - Hinzufüge einen Gobal chat in einen channel\n/removeGlobal - Entferne einen Global Chat von deinen Server\n/ban - Banne membe r vom Global Chat\n/unban - Unban einen Member vom Global chat\n/servers - Siehe alle server in den Der Bot drauf ist.```")
